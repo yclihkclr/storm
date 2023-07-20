@@ -202,6 +202,7 @@ class Controller(ABC):
     def generate_rollouts(self, state):
         pass
 
+    # optimize function is here
     def optimize(self, state, calc_val=False, shift_steps=1, n_iters=None):
         """
         Optimize for best action at current state

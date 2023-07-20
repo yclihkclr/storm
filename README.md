@@ -32,3 +32,6 @@ If you use this source code, please cite the below article,
 
 ## Contributing to this code
 Refer to CLA before making contributions.
+
+## need to export env variable before use
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/andylee/miniconda3/envs/storm_kit/lib

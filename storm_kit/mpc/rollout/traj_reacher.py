@@ -24,7 +24,7 @@ import torch
 import torch.autograd.profiler as profiler
 
 from ...differentiable_robot_model.coordinate_transform import matrix_to_quaternion, quaternion_to_matrix
-from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost
+from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost, FinalTrajCost, RefTrajCost
 from ...mpc.rollout.arm_base import ArmBase
 
 class ArmReacher(ArmBase):
@@ -50,37 +50,50 @@ class ArmReacher(ArmBase):
         self.goal_cost = PoseCost(**exp_params['cost']['goal_pose'],
                                   tensor_args=self.tensor_args)
         
+        self.final_traj_cost = FinalTrajCost(**self.exp_params['cost']['final_traj_cost'], device=device,float_dtype=float_dtype)
+
+        self.ref_traj_cost = RefTrajCost(**exp_params['cost']['ref_traj_cost'],
+                                  tensor_args=self.tensor_args,
+                                  traj_dt=self.traj_dt)
 
     def cost_fn(self, state_dict, action_batch, no_coll=False, horizon_cost=True, return_dist=False):
 
         cost = super(ArmReacher, self).cost_fn(state_dict, action_batch, no_coll, horizon_cost)
-        ee_pos_batch, ee_rot_batch = state_dict['ee_pos_seq'], state_dict['ee_rot_seq']
-        
+
         state_batch = state_dict['state_seq']
-        #1,3
-        goal_ee_pos = self.goal_ee_pos
-        #1,3,3
-        goal_ee_rot = self.goal_ee_rot
+        ref_traj = self.ref_traj
         retract_state = self.retract_state
-
-        #1,14 pos+vel
         goal_state = self.goal_state
-        
-        #500,30 cost
-        goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
-                                                                    goal_ee_pos, goal_ee_rot)
 
-
-        cost += goal_cost
-        
-        # joint l2 cost
-        if(self.exp_params['cost']['joint_l2']['weight'] > 0.0 and goal_state is not None):
+        # final_traj_cost
+        if self.exp_params['cost']['final_traj_cost']['weight'] > 0.0:
             # 500,30,7 - 1,7
-            disp_vec = state_batch[:,:,0:self.n_dofs] - goal_state[:,0:self.n_dofs]
-            cost += self.dist_cost.forward(disp_vec)
+            state_batch_position = state_batch[:,:,0:self.n_dofs]
+            disp_vec = state_batch_position - goal_state
+            cost += self.final_traj_cost.forward(disp_vec)
 
-        if(return_dist):
-            return cost, rot_err_norm, goal_dist
+
+        # ref_traj_cost
+        if self.exp_params['cost']['ref_traj_cost']['weight'] > 0.0:
+            # batch positions
+            # 500,30,7 - 1,30,7
+            state_batch_position = state_batch[:, :, 0:self.n_dofs]
+            disp_mat = state_batch_position - ref_traj
+            cost += self.ref_traj_cost.forward(disp_mat)  
+
+        
+        
+        # goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
+        #                                                             goal_ee_pos, goal_ee_rot)
+
+
+        # cost += goal_cost
+        
+        
+
+
+        # if(return_dist):
+        #     return cost, rot_err_norm, goal_dist
 
             
         if self.exp_params['cost']['zero_acc']['weight'] > 0:
@@ -92,33 +105,27 @@ class ArmReacher(ArmBase):
         return cost
 
 
-    def update_params(self, retract_state=None, goal_state=None, goal_ee_pos=None, goal_ee_rot=None, goal_ee_quat=None):
+    def update_params(self, retract_state=None, goal_state=None, ref_traj=None):
         """
         Update params for the cost terms and dynamics model.
         goal_state: n_dofs
-        goal_ee_pos: 3
-        goal_ee_rot: 3,3
-        goal_ee_quat: 4
 
         """
         
         super(ArmReacher, self).update_params(retract_state=retract_state)
         
-        if(goal_ee_pos is not None):
-            self.goal_ee_pos = torch.as_tensor(goal_ee_pos, **self.tensor_args).unsqueeze(0)
-            self.goal_state = None
-        if(goal_ee_rot is not None):
-            self.goal_ee_rot = torch.as_tensor(goal_ee_rot, **self.tensor_args).unsqueeze(0)
-            self.goal_ee_quat = matrix_to_quaternion(self.goal_ee_rot)
-            self.goal_state = None
-        if(goal_ee_quat is not None):
-            self.goal_ee_quat = torch.as_tensor(goal_ee_quat, **self.tensor_args).unsqueeze(0)
-            self.goal_ee_rot = quaternion_to_matrix(self.goal_ee_quat)
-            self.goal_state = None
+        # here we take the last point of ref_traj as the goal
+        if(ref_traj is not None):
+            # 1,horizon,7
+            self.ref_traj = torch.as_tensor(ref_traj, **self.tensor_args).unsqueeze(0)
+            # 1,7, end of the horizon
+            self.goal_state = torch.as_tensor(ref_traj[-1], **self.tensor_args).unsqueeze(0)
+
+        # the goal state can be the true finally goal which is beyond the horizon of ref_traj
         if(goal_state is not None):
+            # 1,7 true final goal
             self.goal_state = torch.as_tensor(goal_state, **self.tensor_args).unsqueeze(0)
-            self.goal_ee_pos, self.goal_ee_rot = self.dynamics_model.robot_model.compute_forward_kinematics(self.goal_state[:,0:self.n_dofs], self.goal_state[:,self.n_dofs:2*self.n_dofs], link_name=self.exp_params['model']['ee_link_name'])
-            self.goal_ee_quat = matrix_to_quaternion(self.goal_ee_rot)
+
         
         return True
     

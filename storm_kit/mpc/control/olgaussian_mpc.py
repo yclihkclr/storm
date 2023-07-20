@@ -144,6 +144,9 @@ class OLGaussianMPC(Controller):
     def _get_action_seq(self, mode='mean'):
         if mode == 'mean':
             act_seq = self.mean_action.clone()
+            # act_seq = self.best_traj.clone()
+            # print("best traj is: ",self.best_traj)
+            # print("mean traj is: ",self.mean_action)
         elif mode == 'sample':
             delta = self.generate_noise(shape=torch.Size((1, self.horizon)),
                                         base_seed=self.seed_val + 123 * self.num_steps)
@@ -209,6 +212,7 @@ class OLGaussianMPC(Controller):
         act_seq = torch.cat((act_seq, append_acts), dim=0)
         return act_seq
 
+    # sample the particles and compute cost by rollout
     def generate_rollouts(self, state):
         """
             Samples a batch of actions, rolls out trajectories for each particle

@@ -59,13 +59,13 @@ from storm_kit.gym.helpers import load_struct_from_dict
 from storm_kit.util_file import get_mpc_configs_path as mpc_configs_path
 
 from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform
-from storm_kit.mpc.task.reacher_task import ReacherTask
+from storm_kit.mpc.task.reacher_task_traj import ReacherTask
 np.set_printoptions(precision=2)
 
 def mpc_robot_interactive(args, gym_instance):
     vis_ee_target = True
     robot_file = args.robot + '.yml'
-    task_file = args.robot + '_reacher.yml'
+    task_file = args.robot + '_reacher_traj.yml'
     world_file = 'collision_primitives_3d.yml'
 
     
@@ -158,8 +158,7 @@ def mpc_robot_interactive(args, gym_instance):
 
     mpc_tensor_dtype = {'device':device, 'dtype':torch.float32}
 
-    franka_bl_state = np.array([-0.3, 0.3, 0.2, -2.0, 0.0, 2.4,0.0,
-                                0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    franka_bl_state = np.array([-0.3, 0.3, 0.2, -2.0, 0.0, 2.4,0.0])
     x_des_list = [franka_bl_state]
     
     ee_error = 10.0
@@ -204,15 +203,15 @@ def mpc_robot_interactive(args, gym_instance):
         gym.set_rigid_body_color(env_ptr, ee_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, tray_color)
 
 
-    g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    # g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
     
-    g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
-    object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
+    # g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    # object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
 
-    object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
-    object_pose = w_T_r * object_pose # object pose in robot frame
-    if(vis_ee_target):
-        gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
+    # object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
+    # object_pose = w_T_r * object_pose # object pose in robot frame
+    # if(vis_ee_target):
+    #     gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs
     prev_acc = np.zeros(n_dof)
     ee_pose = gymapi.Transform()
@@ -230,30 +229,22 @@ def mpc_robot_interactive(args, gym_instance):
     qd_des = None
     t_step = gym_instance.get_sim_time()
 
-    g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
-    g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    # g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    # g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+
+    reference_trajectory = np.loadtxt('traj_record.txt')
 
     while(i > -100):
         try:
             gym_instance.step()
-            if(vis_ee_target):
-                pose = copy.deepcopy(world_instance.get_pose(obj_body_handle))
-                pose = copy.deepcopy(w_T_r.inverse() * pose)
-
-                # if(np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.00001 or (np.linalg.norm(g_q - np.ravel([pose.r.w, pose.r.x, pose.r.y, pose.r.z]))>0.0)):
-                if (np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.1 ):
-                    g_pos[0] = pose.p.x
-                    g_pos[1] = pose.p.y
-                    g_pos[2] = pose.p.z
-                    g_q[1] = pose.r.x
-                    g_q[2] = pose.r.y
-                    g_q[3] = pose.r.z
-                    g_q[0] = pose.r.w
-
-                    print("object body handle:",pose.p)
-
-                    mpc_control.update_params(goal_ee_pos=g_pos,
-                                              goal_ee_quat=g_q) #continous revise goal
+            
+            # # when get ros publish msg, needs to update the trajectory
+            # update_trajectory =True
+            # if update_trajectory:
+            #     reference_trajectory = new_received_trajectory
+            
+            horizon = 30
+            mpc_control.update_params(ref_traj=reference_trajectory[:horizon]) #continous revise goal
             t_step += sim_dt
             
             current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
@@ -271,20 +262,20 @@ def mpc_robot_interactive(args, gym_instance):
             qd_des = copy.deepcopy(command['velocity']) #* 0.5
             qdd_des = copy.deepcopy(command['acceleration'])
             
-            ee_error = mpc_control.get_current_error(filtered_state_mpc)
+            # ee_error = mpc_control.get_current_error(filtered_state_mpc)
              
-            pose_state = mpc_control.controller.rollout_fn.get_ee_pose(curr_state_tensor)
+            # pose_state = mpc_control.controller.rollout_fn.get_ee_pose(curr_state_tensor)
             
             # get current pose:
-            e_pos = np.ravel(pose_state['ee_pos_seq'].cpu().numpy())
-            e_quat = np.ravel(pose_state['ee_quat_seq'].cpu().numpy())
-            ee_pose.p = copy.deepcopy(gymapi.Vec3(e_pos[0], e_pos[1], e_pos[2]))
-            ee_pose.r = gymapi.Quat(e_quat[1], e_quat[2], e_quat[3], e_quat[0])
+            # e_pos = np.ravel(pose_state['ee_pos_seq'].cpu().numpy())
+            # e_quat = np.ravel(pose_state['ee_quat_seq'].cpu().numpy())
+            # ee_pose.p = copy.deepcopy(gymapi.Vec3(e_pos[0], e_pos[1], e_pos[2]))
+            # ee_pose.r = gymapi.Quat(e_quat[1], e_quat[2], e_quat[3], e_quat[0])
             
-            ee_pose = copy.deepcopy(w_T_r) * copy.deepcopy(ee_pose)
+            # ee_pose = copy.deepcopy(w_T_r) * copy.deepcopy(ee_pose)
             
-            if(vis_ee_target):
-                gym.set_rigid_transform(env_ptr, ee_body_handle, copy.deepcopy(ee_pose))
+            # if(vis_ee_target):
+            #     gym.set_rigid_transform(env_ptr, ee_body_handle, copy.deepcopy(ee_pose))
 
             # print(["{:.3f}".format(x) for x in ee_error], "{:.3f}".format(mpc_control.opt_dt),
             #       "{:.3f}".format(mpc_control.mpc_dt))
@@ -307,14 +298,11 @@ def mpc_robot_interactive(args, gym_instance):
             robot_sim.command_robot_position(q_des, env_ptr, robot_ptr)
             #robot_sim.set_robot_state(q_des, qd_des, env_ptr, robot_ptr)
             current_state = command
-
+            
             i += 1
 
-            ## record the reference trajectory
-            # with open('traj_record.txt', 'ab') as f:
-            #     q_des = q_des.flatten()
-            #     np.savetxt(f, q_des, fmt='%.6f', newline=" ")
-            #     f.write(b'\n')
+            # 1 step forward of reference_trajectory, i.e. remove the first row
+            reference_trajectory = reference_trajectory[1:]
             
 
             

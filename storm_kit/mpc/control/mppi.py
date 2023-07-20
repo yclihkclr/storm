@@ -102,6 +102,7 @@ class MPPI(OLGaussianMPC):
         self.kappa = kappa
         self.visual_traj = visual_traj
 
+    # update distribution
     def _update_distribution(self, trajectories):
         """
            Update moments in the direction using sampled

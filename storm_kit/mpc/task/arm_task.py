@@ -39,7 +39,7 @@ class ArmTask(BaseTask):
         super().__init__(tensor_args=tensor_args)
         
         
-        self.controller = self.init_mppi(task_file, robot_file, world_file)
+        self.controller = self.init_mppi(task_file, robot_file, world_file) #mppi
         self.init_aux()
         
     def get_rollout_fn(self, **kwargs):

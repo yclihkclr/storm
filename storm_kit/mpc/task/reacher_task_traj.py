@@ -20,28 +20,31 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.#
-from .dist_cost import DistCost
-from .finite_difference_cost import FiniteDifferenceCost
-from .jacobian_cost import JacobianCost
-from .pose_cost import PoseCost
-from .stop_cost import StopCost
-from .projected_dist_cost import ProjectedDistCost
-from .null_costs import get_inv_null_cost, get_transpose_null_cost
-from .zero_cost import ZeroCost
-from .ee_vel_cost import EEVelCost
+import torch
+import yaml
+import numpy as np
 
-from .collision_cost import CollisionCost
-from .primitive_collision_cost import PrimitiveCollisionCost
-from .voxel_collision_cost import VoxelCollisionCost
+from ...util_file import get_mpc_configs_path as mpc_configs_path
+from ...mpc.rollout.traj_reacher import ArmReacher
+from ...mpc.control import MPPI
+from ...mpc.utils.state_filter import JointStateFilter
+from ...mpc.utils.mpc_process_wrapper import ControlProcess
+from ...util_file import get_assets_path, join_path, load_yaml, get_gym_configs_path
+from .arm_task import ArmTask
 
-from .final_traj_cost import FinalTrajCost
-from .ref_traj_cost import RefTrajCost
 
-try:
-    True
-    #from .scene_nn_collision_cost import SceneNNCollisionCost
-except ImportError:
-    pass
+class ReacherTask(ArmTask):
+    """
+    .. inheritance-diagram:: ReacherTask
+       :parts: 1
 
-__all__ = ['DistCost', 'FiniteDifferenceCost', 'JacobianCost', 'PoseCost', 'ProjectedDistCost', \
-           'ZeroCost', 'get_inv_null_cost','get_transpose_null_cost']
+    """
+    def __init__(self, task_file='ur10.yml', robot_file='ur10_reacher.yml', world_file='collision_env.yml', tensor_args={'device':"cpu", 'dtype':torch.float32}):
+        
+        super().__init__(task_file=task_file, robot_file=robot_file,
+                         world_file=world_file, tensor_args=tensor_args)
+
+    def get_rollout_fn(self, **kwargs):
+        rollout_fn = ArmReacher(**kwargs)
+        return rollout_fn
+
