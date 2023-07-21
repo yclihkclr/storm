@@ -203,6 +203,12 @@ class ArmBase(RolloutBase):
             if self.exp_params['cost']['primitive_collision']['weight'] > 0:
                 coll_cost = self.primitive_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += coll_cost
+
+            ### to integrate scene_collision_net
+            if self.exp_params['cost']['scene_collision']['weight'] > 0:
+                coll_cost = self.voxel_collision_cost.forward(link_pos_batch, link_rot_batch)
+                cost += coll_cost
+            ###
             if self.exp_params['cost']['voxel_collision']['weight'] > 0:
                 coll_cost = self.voxel_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += coll_cost
