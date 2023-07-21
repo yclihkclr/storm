@@ -33,5 +33,23 @@ If you use this source code, please cite the below article,
 ## Contributing to this code
 Refer to CLA before making contributions.
 
-## need to export env variable before use
+## need to export env variable before use(here replace the andylee with your user name)
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/andylee/miniconda3/envs/storm_kit/lib
+
+## python isaac sim trajectory follower demo
+```
+python3 examples/franka_reacher_traj.py
+```
+
+## ros conda enrionment and usage, for integration with global planner
+first you should install ros noetic on your ubuntu system
+ then do following cmd in the conda environment
+
+```
+source /opt/ros/noetic/setup.bash
+pip install rospkg
+```
+then you can run the ros_storm as:
+```
+python3 examples/franka_reacher_traj_ros.py
+```
