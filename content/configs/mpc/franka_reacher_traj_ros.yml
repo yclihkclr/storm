@@ -47,13 +47,7 @@ model:
   #control_freq: 10
   #sim_freq: 100
   ee_link_name: "ee_link"
-  init_state: [-0.01779206,
-              -0.76012354,
-              0.01978261,
-              -2.34205014,
-              0.02984053,
-              1.54119353,
-              0.75344866] # coresponds to npinet
+  init_state: [-0.01779206, -0.76012354,  0.01978261, -2.34205014,  0.02984053, 1.54119353,  0.75344866] # coresponds to npinet
   link_names: ['panda_link2','panda_link3','panda_link4','panda_link5', 'panda_link6','panda_hand']
   #link_names: ['panda_link6']
   vel_scale: 1.0

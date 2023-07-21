@@ -93,7 +93,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     with open(world_yml) as file:
         world_params = yaml.load(file, Loader=yaml.FullLoader)
 
-    robot_yml = join_path(get_gym_configs_path(),args.robot + '.yml')
+    robot_yml = join_path(get_gym_configs_path(),args.robot + '_ros.yml')
     with open(robot_yml) as file:
         robot_params = yaml.load(file, Loader=yaml.FullLoader)
     sim_params = robot_params['sim_params']
@@ -264,7 +264,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
             
             #freeze the simulation due to no enough points in ref traj
             while len(reference_trajectory)<30:
-                print("no enough refer trajectory!")
+                # print("no enough refer trajectory!")
 
                 #replace traj if updated
                 if follower.is_ref_traj_new:
@@ -313,6 +313,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
             # print("current_state is :",current_state)
             #update joint state
             follower.gloabl_joint_state = current_state["position"].tolist()
+            print("current_joint_state is: ",follower.gloabl_joint_state)
             joint_states = follower.gloabl_joint_state
             joint_states.extend([0.025,0.025])
             msg = JointState()
