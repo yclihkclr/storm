@@ -233,7 +233,7 @@ def mpc_robot_interactive(args, gym_instance):
     # g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
 
     reference_trajectory = np.loadtxt('traj_record.txt')
-
+    horizon = 30
     while(i > -100):
         try:
             gym_instance.step()
@@ -242,8 +242,11 @@ def mpc_robot_interactive(args, gym_instance):
             # update_trajectory =True
             # if update_trajectory:
             #     reference_trajectory = new_received_trajectory
+
+            #complement final points at the end of ref traj
+            if len(reference_trajectory)<horizon:
+                reference_trajectory = np.vstack((reference_trajectory, reference_trajectory[-1,:]))
             
-            horizon = 30
             mpc_control.update_params(ref_traj=reference_trajectory[:horizon]) #continous revise goal
             t_step += sim_dt
             

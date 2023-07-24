@@ -257,23 +257,21 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
         time.sleep(0.01)
     reference_trajectory = follower.global_reference_trajectory
     follower.is_ref_traj_new = False
+    horizon = exp_params['mppi']['horizon']
 
     while(i > -100):
         try:
             gym_instance.step()
+
+            #replace traj if updated
+            if follower.is_ref_traj_new:
+                reference_trajectory = follower.global_reference_trajectory
+                follower.is_ref_traj_new = False
             
-            #freeze the simulation due to no enough points in ref traj
-            while len(reference_trajectory)<30:
-                # print("no enough refer trajectory!")
-
-                #replace traj if updated
-                if follower.is_ref_traj_new:
-                    reference_trajectory = follower.global_reference_trajectory
-                    follower.is_ref_traj_new = False
-                else:
-                    time.sleep(0.01)
-
-            horizon = 30
+            #complement final points at the end of ref traj
+            if len(reference_trajectory)<horizon:
+                reference_trajectory = np.vstack((reference_trajectory, reference_trajectory[-1,:]))
+            
             mpc_control.update_params(ref_traj=reference_trajectory[:horizon]) #continous revise goal
             t_step += sim_dt
             
