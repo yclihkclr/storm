@@ -177,7 +177,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     
 
     # get camera data:
-    mpc_control = ReacherTask(task_file, robot_file, world_file, tensor_args)
+    mpc_control = ReacherTask(task_file, robot_file, world_params, tensor_args)
 
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs #rollout_fn=ArmReacher
 
