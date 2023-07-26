@@ -70,6 +70,9 @@ from load_problems import get_world_param_from_problemset
 from mpinets.types import PlanningProblem, ProblemSet
 import pickle
 
+ENV_TYPE = 'dresser'
+PROBLEM_TYPE = 'neutral_start'
+PROBLEM_INDEX = 0
 
 JOINT_NAMES = [
     "panda_joint1",
@@ -94,9 +97,9 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     # mpinet_problem_selection
     mpinet_problem = True
     file_path = "/home/andylee/storm/mpinets/hybrid_solvable_problems.pkl"
-    env_type = 'tabletop'
-    problem_type = 'neutral_start'
-    problem_index = 0
+    env_type = ENV_TYPE
+    problem_type = PROBLEM_TYPE
+    problem_index = PROBLEM_INDEX
     
     gym = gym_instance.gym
     sim = gym_instance.sim
@@ -271,10 +274,16 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     # reference_trajectory = np.loadtxt('traj_record.txt')
     reference_trajectory = None
     # #this should be a blocking until the first trajectory come when initialize
-    while follower.global_reference_trajectory is None:
-        time.sleep(0.01)
+    # while follower.global_reference_trajectory is None:
+    #     time.sleep(0.01)
+    # reference_trajectory = follower.global_reference_trajectory
+
+    # initize with a ref traj tracking current state all the time, until new traj comes
+    current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
+    follower.global_reference_trajectory = np.repeat(current_robot_state['position'][np.newaxis, :], 30, axis=0)
     reference_trajectory = follower.global_reference_trajectory
     follower.is_ref_traj_new = False
+
     horizon = exp_params['mppi']['horizon']
 
     while(i > -100):
@@ -329,7 +338,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
             # print("current_state is :",current_state)
             #update joint state
             follower.gloabl_joint_state = current_state["position"].tolist()
-            print("current_joint_state is: ",follower.gloabl_joint_state)
+            # print("current_joint_state is: ",follower.gloabl_joint_state)
             joint_states = follower.gloabl_joint_state
             joint_states.extend([0.025,0.025])
             msg = JointState()
