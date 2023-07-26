@@ -27,11 +27,12 @@ import torch.nn as nn
 from .gaussian_projection import GaussianProjection
 
 class FinalTrajCost(nn.Module):
-    def __init__(self, weight=None, vec_weight=None, gaussian_params={}, device=torch.device('cpu'), float_dtype=torch.float32, **kwargs):
+    def __init__(self, weight=None, vec_weight=None, gaussian_params={},last_point_only=True, device=torch.device('cpu'), float_dtype=torch.float32, **kwargs):
         super(FinalTrajCost, self).__init__()
         self.device = device
         self.float_dtype = float_dtype
         self.weight = torch.as_tensor(weight, device=device, dtype=float_dtype)
+        self.last_point_only=last_point_only
         if(vec_weight is not None):
             self.vec_weight = torch.as_tensor(vec_weight, device=device, dtype=float_dtype).unsqueeze(0)
         else:
@@ -43,7 +44,8 @@ class FinalTrajCost(nn.Module):
         # we might use the vec_weight to set 0,0,0,0,0,0,1.0 to keep the cost of last point only
         disp_vec = self.vec_weight * disp_vec.to(self.device)
         # only consider the last point of every sampled trajectory wrt horizon goal point
-        disp_vec[:, :-1, :] = 0.0
+        if self.last_point_only:
+            disp_vec[:, :-1, :] = 0.0
         if dist_type == 'l2':
             dist = torch.norm(disp_vec, p=2, dim=-1,keepdim=False)
         elif dist_type == 'squared_l2':
