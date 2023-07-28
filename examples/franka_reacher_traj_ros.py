@@ -58,17 +58,19 @@ from storm_kit.gym.helpers import load_struct_from_dict
 
 from storm_kit.util_file import get_mpc_configs_path as mpc_configs_path
 
-from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform
+from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform, matrix_to_quaternion
 from storm_kit.mpc.task.reacher_task_traj import ReacherTask
 
 import rospy
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 import threading
 
 from load_problems import get_world_param_from_problemset
 from mpinets.types import PlanningProblem, ProblemSet
 import pickle
+import transform
 
 ENV_TYPE = 'dresser'
 PROBLEM_TYPE = 'neutral_start'
@@ -143,7 +145,6 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
 
     # get pose
     w_T_r = copy.deepcopy(robot_sim.spawn_robot_pose)
-    
     w_T_robot = torch.eye(4)
     quat = torch.tensor([w_T_r.r.w,w_T_r.r.x,w_T_r.r.y,w_T_r.r.z]).unsqueeze(0)
     rot = quaternion_to_matrix(quat)
@@ -151,7 +152,7 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     w_T_robot[1,3] = w_T_r.p.y
     w_T_robot[2,3] = w_T_r.p.z
     w_T_robot[:3,:3] = rot[0]
-
+    print("w_T_robot",w_T_robot)
     # add scene from npnets problem
     if mpinet_problem:
         with open(file_path, "rb") as f:
@@ -193,11 +194,10 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     
     current_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
     ee_list = []
-    
 
     mpc_tensor_dtype = {'device':device, 'dtype':torch.float32}
 
-    franka_bl_state = np.array([-0.3, 0.3, 0.2, -2.0, 0.0, 2.4,0.0])
+    franka_bl_state = np.array(sim_params['init_state'])
     x_des_list = [franka_bl_state]
     
     ee_error = 10.0
@@ -284,11 +284,32 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
     reference_trajectory = follower.global_reference_trajectory
     follower.is_ref_traj_new = False
 
+    # initize g_pos and g_q
+    q_tensor = torch.as_tensor(franka_bl_state,**tensor_args).unsqueeze(0)
+    qd_tensor = torch.as_tensor(np.zeros(7),**tensor_args).unsqueeze(0)
+    mpc_control.controller.rollout_fn.dynamics_model.robot_model.update_kinematic_state(q_tensor,qd_tensor)
+    link_pos, link_rot = mpc_control.controller.rollout_fn.dynamics_model.robot_model.get_link_pose('ee_link')
+    link_pos_np = link_pos.squeeze(0).cpu().numpy()
+    link_quat = matrix_to_quaternion(link_rot)
+    link_quat_np = link_quat.squeeze(0).cpu().numpy()
+    follower.g_pos = link_pos_np
+    follower.g_q = link_quat_np
+    print("!!! start with eef link_pos_np ",follower.g_pos)
+    print("!!! start with eef link_quat_np ",follower.g_q)
+
     horizon = exp_params['mppi']['horizon']
 
     while(i > -100):
         try:
             gym_instance.step()
+            g_pos = follower.g_pos
+            g_q = follower.g_q
+
+            if(vis_ee_target):
+                object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
+                object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
+                object_pose = w_T_r * object_pose # object pose in robot frame
+                gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
 
             #replace traj if updated
             if follower.is_ref_traj_new:
@@ -299,12 +320,19 @@ def mpc_robot_interactive(args, gym_instance,follower=None):
             if len(reference_trajectory)<horizon:
                 reference_trajectory = np.vstack((reference_trajectory, reference_trajectory[-1,:]))
             
-            mpc_control.update_params(ref_traj=reference_trajectory[:horizon]) #continous revise goal
+            #current pose
+            link_pos, link_rot = mpc_control.controller.rollout_fn.dynamics_model.robot_model.get_link_pose('ee_link')
+            link_pos_np = link_pos.squeeze(0).cpu().numpy()
+            link_quat = matrix_to_quaternion(link_rot)
+            link_quat_np = link_quat.squeeze(0).cpu().numpy()
+            cur_pos = link_pos_np[0]
+            # print("!!! current eef link_pos_np ",cur_pos)
+            cur_quat = link_quat_np[0]
+            # print("!!! current eef link_quat_np ",cur_quat)
+            mpc_control.update_params(cur_pos=cur_pos, goal_ee_pos=g_pos,goal_ee_quat=g_q,ref_traj=reference_trajectory[:horizon]) #continous revise goal
             t_step += sim_dt
             
-            current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
-            
-
+            current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))           
             
             command = mpc_control.get_command(t_step, current_robot_state, control_dt=sim_dt, WAIT=True)
 
@@ -383,6 +411,13 @@ class TrajectoryFollowerNode:
             queue_size=1,
         )
 
+        self.goal_subscriber = rospy.Subscriber(
+            "/mpinets/goal",
+            Pose,
+            self.goal_update_callback,
+            queue_size=1,
+        )
+
         self.gloabl_joint_state = [  -0.01779206,
                         -0.76012354,
                         0.01978261,
@@ -394,7 +429,30 @@ class TrajectoryFollowerNode:
         self.is_ref_traj_new = False
 
         rospy.loginfo("the follower node is set up")
-    
+
+    def goal_update_callback(self, msg: Pose):
+        """
+        Receives and update the new planned jointTrajectory from mpinets for reference
+        """
+
+        ## !!note the eef frame of mpinet and storm franka has a rotation of 90 in z axis of franka hand
+        self.g_pos = np.array([msg.position.x,msg.position.y,msg.position.z])
+        en_to_es = np.array([[0.,  -1.,  0.],
+                           [ 1.,  0.,  0.],
+                           [ 0.,  0.,  1.]])
+        r_to_en_quat = np.array([msg.orientation.x,msg.orientation.y,msg.orientation.z,msg.orientation.w])
+        r_to_en = transform.quaternion_matrix(r_to_en_quat.tolist())[:3,:3]
+        r_to_es = np.dot(r_to_en,en_to_es)
+        r_to_es_4 = np.identity(4)
+        r_to_es_4[:3, :3] = r_to_es
+        r_to_es_quat = transform.quaternion_from_matrix(r_to_es_4)
+        self.g_q = [r_to_es_quat[3],r_to_es_quat[0],r_to_es_quat[1],r_to_es_quat[2]]
+        # self.g_q = np.array([msg.orientation.w,msg.orientation.x,msg.orientation.y,msg.orientation.z])
+        print("the self.g_q is",self.g_q)
+        print("goal pos is ",self.g_pos)
+        print("goal quaternion is ",self.g_q)
+        rospy.loginfo("i was called, goal")
+
     def trajectory_update_callback(self, msg: JointTrajectory):
         """
         Receives and update the new planned jointTrajectory from mpinets for reference
@@ -409,7 +467,7 @@ class TrajectoryFollowerNode:
         self.global_reference_trajectory = reference_trajectory_npary
         self.is_ref_traj_new = True
         print("reference_trajectory is ",self.global_reference_trajectory)
-        rospy.loginfo("i was called")
+        rospy.loginfo("i was called, trajectory")
 
 if __name__ == '__main__':
     

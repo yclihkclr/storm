@@ -37,7 +37,7 @@ class PoseCost(nn.Module):
     
     """
     def __init__(self, weight, vec_weight=[], position_gaussian_params={}, orientation_gaussian_params={}, tensor_args={'device':"cpu", 'dtype':torch.float32}, hinge_val=100.0,
-                 convergence_val=[0.0,0.0]):
+                 convergence_val=[0.0,0.0], close_threshold=0.05):
 
         super(PoseCost, self).__init__()
         self.tensor_args = tensor_args
@@ -59,6 +59,7 @@ class PoseCost(nn.Module):
         self.orientation_gaussian = GaussianProjection(gaussian_params=orientation_gaussian_params)
         self.hinge_val = hinge_val
         self.convergence_val = convergence_val
+        self.close_threshold = close_threshold
         self.dtype = self.tensor_args['dtype']
         self.device = self.tensor_args['device']
     
