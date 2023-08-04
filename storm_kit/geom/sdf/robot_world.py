@@ -97,7 +97,7 @@ class RobotWorldCollisionPrimitive(RobotWorldCollision):
         if(self.robot_batch_size != batch_size):
             self.robot_batch_size = batch_size
             self.build_batch_features(self.robot_batch_size, clone_pose=True, clone_points=True)
-
+        #update robot sphere status
         self.robot_coll.update_batch_robot_collision_objs(link_trans, link_rot)
 
         w_link_spheres = self.robot_coll.get_batch_robot_link_spheres()
@@ -214,7 +214,7 @@ class RobotWorldCollisionVoxel():
                                            self.table_camera_transform.rotation())
 
 
-
+    # this is the api to update env pointcloud
     def set_scene(self, camera_pointcloud, scene_labels):
         """Loads scene pointcloud of the environment
 

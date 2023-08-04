@@ -62,13 +62,22 @@ from storm_kit.differentiable_robot_model.coordinate_transform import quaternion
 from storm_kit.mpc.task.reacher_task_traj import ReacherTask
 np.set_printoptions(precision=2)
 
+from load_problems import get_world_param_from_problemset
+from mpinets.types import PlanningProblem, ProblemSet
+import pickle
+
 def mpc_robot_interactive(args, gym_instance):
     vis_ee_target = True
     robot_file = args.robot + '.yml'
     task_file = args.robot + '_reacher_traj.yml'
     world_file = 'collision_primitives_3d.yml'
+    # mpinet_problem_selection
+    mpinet_problem = True
+    file_path = "/home/andylee/storm/mpinets/hybrid_solvable_problems.pkl"
+    env_type = 'tabletop'
+    problem_type = 'neutral_start'
+    problem_index = 0
 
-    
     gym = gym_instance.gym
     sim = gym_instance.sim
     world_yml = join_path(get_gym_configs_path(), world_file)
@@ -120,6 +129,13 @@ def mpc_robot_interactive(args, gym_instance):
     w_T_robot[2,3] = w_T_r.p.z
     w_T_robot[:3,:3] = rot[0]
 
+    # add scene from npnets problem
+    if mpinet_problem:
+        with open(file_path, "rb") as f:
+            problems = pickle.load(f)
+        problem_chosen = problems[env_type][problem_type][problem_index]
+        world_params = get_world_param_from_problemset(problem_chosen)
+
     world_instance = World(gym, sim, env_ptr, world_params, w_T_r=w_T_r)
     
 
@@ -141,7 +157,7 @@ def mpc_robot_interactive(args, gym_instance):
     
 
     # get camera data:
-    mpc_control = ReacherTask(task_file, robot_file, world_file, tensor_args)
+    mpc_control = ReacherTask(task_file, robot_file, world_params, tensor_args)
 
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs #rollout_fn=ArmReacher
 

@@ -126,6 +126,7 @@ def jit_sdf_pt_to_sphere(sphere_pt, sphere_radius, query_pt):
     
     return dist
 
+# the static primitive distance is computed here at very beginning only once
 @torch.jit.script
 def get_pt_primitive_distance(w_pts, world_spheres, world_cubes, dist):
     # type: (Tensor, Tensor, List[List[Tensor]], Tensor) -> Tensor
