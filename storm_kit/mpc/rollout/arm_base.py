@@ -123,6 +123,13 @@ class ArmBase(RolloutBase):
         if(exp_params['cost']['primitive_collision']['weight'] > 0.0):
             self.primitive_collision_cost = PrimitiveCollisionCost(world_params=world_params, robot_params=robot_params, tensor_args=self.tensor_args, **self.exp_params['cost']['primitive_collision'])
 
+        if (exp_params['cost']['dynamic_collision']['weight'] > 0.0):
+            robot_params['world_collision_params']['bounds'] = [[-0.5, -0.8, 0],[0.5,0.8,1.0]]
+            robot_params['world_collision_params']['grid_resolution'] = 0.1
+            self.dynamic_collision_cost = PrimitiveCollisionCost(world_params=world_params, robot_params=robot_params,
+                                                                   tensor_args=self.tensor_args,
+                                                                   **self.exp_params['cost']['dynamic_collision'])
+
         if(exp_params['cost']['robot_self_collision']['weight'] > 0.0):
             self.robot_self_collision_cost = RobotSelfCollisionCost(robot_params=robot_params, tensor_args=self.tensor_args, **self.exp_params['cost']['robot_self_collision'])
 
@@ -202,6 +209,9 @@ class ArmBase(RolloutBase):
                 cost += coll_cost
             if self.exp_params['cost']['primitive_collision']['weight'] > 0:
                 coll_cost = self.primitive_collision_cost.forward(link_pos_batch, link_rot_batch)
+                cost += coll_cost
+            if self.exp_params['cost']['dynamic_collision']['weight'] > 0:
+                coll_cost = self.dynamic_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += coll_cost
             if self.exp_params['cost']['voxel_collision']['weight'] > 0:
                 coll_cost = self.voxel_collision_cost.forward(link_pos_batch, link_rot_batch)

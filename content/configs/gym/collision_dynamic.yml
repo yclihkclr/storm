@@ -1,0 +1,6 @@
+world_model:
+  coll_objs:
+    sphere:
+      obstacle1:
+        radius: 0.12 #5 # meters
+        position: [0.3, 0.3, 0.1]

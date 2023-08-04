@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<robot name="ball">
+  <link name="base"/>
+  <link name="base1"/>
+  <link name="base2"/>
+  <link name="base3"/>
+  <link name="base4"/>
+  <link name="base5"/>
+  <joint name="x_joint" type="prismatic">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base"/>
+    <child link="base1"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="1" lower="-2" upper="2.0" velocity="1"/>
+  </joint>
+
+  <joint name="y_joint" type="prismatic">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base1"/>
+    <child link="base2"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="1" lower="-2.0" upper="2.0" velocity="1"/>
+  </joint>
+
+  <joint name="z_joint" type="prismatic">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base2"/>
+    <child link="base3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+  </joint>
+  <joint name="rx_joint" type="revolute">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base3"/>
+    <child link="base4"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+  </joint>
+  <joint name="ry_joint" type="revolute">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base4"/>
+    <child link="base5"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+  </joint>
+  <joint name="rz_joint" type="revolute">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base5"/>
+    <child link="ball"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+  </joint>
+
+  <link name="ball">
+    <inertial>
+      <mass value="1.0" />
+      <!-- center of mass (com) is defined w.r.t. link local coordinate system -->
+      <!-- give a little y-offset to make the top precess -->
+      <origin xyz="0 0 0" />
+      <inertia  ixx="1.0" ixy="0.0"  ixz="0.0"  iyy="1.0"  iyz="0.0"  izz="1.0" />
+    </inertial>
+    <visual>
+      <!-- visual origin is defined w.r.t. link local coordinate system -->
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.06"/>
+      </geometry>
+    </visual>
+    <collision>
+      <!-- collision origin is defined w.r.t. link local coordinate system -->
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.06"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
