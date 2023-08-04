@@ -47,6 +47,7 @@ import time
 import yaml
 import argparse
 import numpy as np
+import threading
 from quaternion import quaternion, from_rotation_vector, from_rotation_matrix
 import matplotlib.pyplot as plt
 
@@ -64,28 +65,22 @@ from storm_kit.mpc.task.reacher_task import ReacherTask
 
 np.set_printoptions(precision=2)
 
-from load_problems import get_world_param_from_problemset
-from mpinets.types import PlanningProblem, ProblemSet
-import pickle
 
 def mpc_robot_interactive(args, gym_instance):
     vis_ee_target = True
     robot_file = args.robot + '.yml'
     task_file = args.robot + '_reacher.yml'
-    world_file = 'collision_primitives_3d.yml'
+    world_file = 'collision_primitives_bin.yml'
+    dyn_file = 'collision_dynamic.yml'
 
-    # mpinet_problem_selection
-    mpinet_problem = True
-    file_path = "/home/andylee/storm/mpinets/hybrid_solvable_problems.pkl"
-    env_type = 'tabletop'
-    problem_type = 'neutral_start'
-    problem_index = 0
-    
     gym = gym_instance.gym
     sim = gym_instance.sim
     world_yml = join_path(get_gym_configs_path(), world_file)
+    dyn_yml = join_path(get_gym_configs_path(), dyn_file)
     with open(world_yml) as file:
         world_params = yaml.load(file, Loader=yaml.FullLoader)
+    with open(dyn_yml) as file:
+        dynamic_params = yaml.load(file, Loader=yaml.FullLoader)
 
     robot_yml = join_path(get_gym_configs_path(), args.robot + '.yml')
     with open(robot_yml) as file:
@@ -128,39 +123,36 @@ def mpc_robot_interactive(args, gym_instance):
     w_T_robot[2, 3] = w_T_r.p.z
     w_T_robot[:3, :3] = rot[0]
 
-    # add scene from npnets problem
-    if mpinet_problem:
-        with open(file_path, "rb") as f:
-            problems = pickle.load(f)
-        problem_chosen = problems[env_type][problem_type][problem_index]
-        world_params = get_world_param_from_problemset(problem_chosen)
-
     world_instance = World(gym, sim, env_ptr, world_params, w_T_r=w_T_r)
 
-    table_dims = np.ravel([1.5, 2.5, 0.7])
-    cube_pose = np.ravel([0.35, -0.0, -0.35, 0.0, 0.0, 0.0, 1.0])
-
-    cube_pose = np.ravel([0.9, 0.3, 0.4, 0.0, 0.0, 0.0, 1.0])
-
-    table_dims = np.ravel([0.35, 0.1, 0.8])
-
-    cube_pose = np.ravel([0.35, 0.3, 0.4, 0.0, 0.0, 0.0, 1.0])
-
-    table_dims = np.ravel([0.3, 0.1, 0.8])
+    # table_dims = np.ravel([1.5,2.5,0.7])
+    # cube_pose = np.ravel([0.35, -0.0,-0.35,0.0, 0.0, 0.0,1.0])
+    #
+    #
+    #
+    # cube_pose = np.ravel([0.9,0.3,0.4, 0.0, 0.0, 0.0,1.0])
+    #
+    # table_dims = np.ravel([0.35,0.1,0.8])
+    #
+    #
+    #
+    # cube_pose = np.ravel([0.35,0.3,0.4, 0.0, 0.0, 0.0,1.0])
+    #
+    # table_dims = np.ravel([0.3,0.1,0.8])
 
     # get camera data:
-    mpc_control = ReacherTask(task_file, robot_file, world_params, tensor_args)
+    mpc_control = ReacherTask(task_file, robot_file, world_file, tensor_args)
 
-    n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs  # rollout_fn=ArmReacher
+    # n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs #rollout_fn=ArmReacher
 
-    start_qdd = torch.zeros(n_dof, **tensor_args)
+    # start_qdd = torch.zeros(n_dof, **tensor_args)
 
-    # update goal:
-
-    exp_params = mpc_control.exp_params
-
-    current_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
-    ee_list = []
+    # # update goal:
+    #
+    # exp_params = mpc_control.exp_params
+    #
+    # current_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
+    # ee_list = []
 
     mpc_tensor_dtype = {'device': device, 'dtype': torch.float32}
 
@@ -168,9 +160,9 @@ def mpc_robot_interactive(args, gym_instance):
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     x_des_list = [franka_bl_state]
 
-    ee_error = 10.0
-    j = 0
-    t_step = 0
+    # ee_error = 10.0
+    # j = 0
+    # t_step = 0
     i = 0
     x_des = x_des_list[0]
 
@@ -191,7 +183,26 @@ def mpc_robot_interactive(args, gym_instance):
     obj_asset_file = "urdf/mug/movable_mug.urdf"
     obj_asset_root = get_assets_path()
 
+    # spawn obstacle
+    # load ball asset
+    x_c, y_c, z_c = dynamic_params["world_model"]["coll_objs"]['sphere']['obstacle1']['position']
+
+    ball_pose = gymapi.Transform()
+    ball_pose.p = gymapi.Vec3(x_c, y_c, z_c)  # change this to your desired position
+    ball_pose.r = gymapi.Quat(0, 0, 0, 1)  # change this to your desired orientation
+    ball_color = gymapi.Vec3(0.1, 0.8, 0.8)  # change this to your desired color
+
+    ball_asset_file = "urdf/ball/ball.urdf"  # change this to your ball asset file path
+    ball_asset_root = get_assets_path()  # change this to your asset root path
+
     if (vis_ee_target):
+        obstacle_ball = world_instance.spawn_object(ball_asset_file, ball_asset_root, ball_pose, color=ball_color,
+                                                    name='obstacle_ball')
+        ball_base_handle = gym.get_actor_rigid_body_handle(env_ptr, obstacle_ball, 0)
+        ball_body_handle = gym.get_actor_rigid_body_handle(env_ptr, obstacle_ball, 6)
+        gym.set_rigid_body_color(env_ptr, obstacle_ball, 0, gymapi.MESH_VISUAL_AND_COLLISION, ball_color)
+        gym.set_rigid_body_color(env_ptr, obstacle_ball, 6, gymapi.MESH_VISUAL_AND_COLLISION, ball_color)
+
         target_object = world_instance.spawn_object(obj_asset_file, obj_asset_root, object_pose, color=tray_color,
                                                     name='ee_target_object')
         obj_base_handle = gym.get_actor_rigid_body_handle(env_ptr, target_object, 0)
@@ -215,36 +226,68 @@ def mpc_robot_interactive(args, gym_instance):
 
     object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
     object_pose = w_T_r * object_pose  # object pose in robot frame
+
     if (vis_ee_target):
         gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
+
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs
     prev_acc = np.zeros(n_dof)
     ee_pose = gymapi.Transform()
     w_robot_coord = CoordinateTransform(trans=w_T_robot[0:3, 3].unsqueeze(0),
                                         rot=w_T_robot[0:3, 0:3].unsqueeze(0))
 
-    rollout = mpc_control.controller.rollout_fn
+    # rollout = mpc_control.controller.rollout_fn
     tensor_args = mpc_tensor_dtype
     sim_dt = mpc_control.exp_params['control_dt']
 
-    log_traj = {'q': [], 'q_des': [], 'qdd_des': [], 'qd_des': [],
-                'qddd_des': []}
-
-    q_des = None
-    qd_des = None
+    # log_traj = {'q':[], 'q_des':[], 'qdd_des':[], 'qd_des':[],
+    #             'qddd_des':[]}
+    #
+    # q_des = None
+    # qd_des = None
     t_step = gym_instance.get_sim_time()
 
     g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
     g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
 
+    # Quick hack for nonlocal memory between threads in Python 2
+    nonlocal_variables = {'scene_change': False,
+                          'obs_pose': None}
+
+    def register_world():
+        while True:
+            if nonlocal_variables['scene_change']:
+                # Update obstacle position
+                st = time.time()
+                pose_obs = nonlocal_variables['obs_pose']
+                dynamic_params["world_model"]["coll_objs"]['sphere']['obstacle1'] = {
+                    'position': [pose_obs.p.x, pose_obs.p.y, pose_obs.p.z], 'radius': 0.12}
+                print()
+                mpc_control.controller.rollout_fn.dynamic_collision_cost.robot_world_coll.world_coll.update_scene(
+                    dynamic_params["world_model"])
+                et = time.time()
+                print("collision updated:", et - st)
+
+    action_thread = threading.Thread(target=register_world)
+    action_thread.daemon = True
+    action_thread.start()
+
+    # simulation main loop
+    sim_steps = 0
+    old_obs_pose = copy.deepcopy(world_instance.get_pose(ball_body_handle))
     while (i > -100):
         try:
             gym_instance.step()
+            sim_steps += 1
             if (vis_ee_target):
                 pose = copy.deepcopy(world_instance.get_pose(obj_body_handle))
                 pose = copy.deepcopy(w_T_r.inverse() * pose)
 
-                # if(np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.00001 or (np.linalg.norm(g_q - np.ravel([pose.r.w, pose.r.x, pose.r.y, pose.r.z]))>0.0)):
+                obs_pose = copy.deepcopy(world_instance.get_pose(ball_body_handle))
+                obs_pose = copy.deepcopy(w_T_r.inverse() * obs_pose)
+
+                # if(np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.00001 or (np.linalg.norm(
+                # g_q - np.ravel([pose.r.w, pose.r.x, pose.r.y, pose.r.z]))>0.0)):
                 if (np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.1):
                     g_pos[0] = pose.p.x
                     g_pos[1] = pose.p.y
@@ -254,10 +297,24 @@ def mpc_robot_interactive(args, gym_instance):
                     g_q[3] = pose.r.z
                     g_q[0] = pose.r.w
 
-                    print("object body handle:", pose.p)
+                    # print("object body handle:", pose.p)
+                    # print("ball handle:", obs_pose.p)
 
                     mpc_control.update_params(goal_ee_pos=g_pos,
                                               goal_ee_quat=g_q)  # continous revise goal
+
+                # if np.linalg.norm(np.ravel([obs_pose.p.x, obs_pose.p.y, obs_pose.p.z]) - np.ravel([old_obs_pose.p.x, old_obs_pose.p.y, old_obs_pose.p.z])) > 0.05:
+                nonlocal_variables['scene_change'] = True
+                nonlocal_variables['obs_pose'] = obs_pose
+
+                # if sim_steps > 20:
+                #     # Update obstacle position
+                #     world_params["world_model"]["coll_objs"]['sphere'].update(
+                #         {'sphere2': {'position': [obs_pose.p.x, obs_pose.p.y, obs_pose.p.z], 'radius': 0.1}})
+                #     mpc_control.controller.rollout_fn.primitive_collision_cost.update_world(world_params)
+                #     sim_steps = 0
+
+            old_obs_pose = obs_pose
             t_step += sim_dt
 
             current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
@@ -317,6 +374,8 @@ def mpc_robot_interactive(args, gym_instance):
             #     q_des = q_des.flatten()
             #     np.savetxt(f, q_des, fmt='%.6f', newline=" ")
             #     f.write(b'\n')
+
+
 
         except KeyboardInterrupt:
             print('Closing')
