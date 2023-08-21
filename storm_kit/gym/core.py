@@ -184,6 +184,7 @@ class World(object):
                                              2,2,self.ENV_SEG_LABEL)
         self.gym.set_rigid_body_color(self.env_ptr, table_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, obj_color)
         self.table_handles.append(table_handle)
+        return table_handle
 
     def spawn_object(self, asset_file, asset_root, pose, color=[], name='object'):
         asset_options = gymapi.AssetOptions()

@@ -70,7 +70,7 @@ def mpc_robot_interactive(args, gym_instance):
     vis_ee_target = True
     robot_file = args.robot + '.yml'
     task_file = args.robot + '_reacher.yml'
-    world_file = 'collision_primitives_bin.yml'
+    world_file = 'collision_table.yml'
     dyn_file = 'collision_dynamic.yml'
 
     gym = gym_instance.gym
@@ -141,7 +141,7 @@ def mpc_robot_interactive(args, gym_instance):
     # table_dims = np.ravel([0.3,0.1,0.8])
 
     # get camera data:
-    mpc_control = ReacherTask(task_file, robot_file, world_file, tensor_args)
+    mpc_control = ReacherTask(task_file, robot_file, world_params, tensor_args)
 
     # n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs #rollout_fn=ArmReacher
 

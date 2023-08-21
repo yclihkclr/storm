@@ -28,7 +28,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 
 import torch
-
+import math
 torch.multiprocessing.set_start_method('spawn', force=True)
 torch.set_num_threads(8)
 torch.backends.cudnn.benchmark = False
@@ -42,7 +42,7 @@ import matplotlib
 matplotlib.use('tkagg')
 
 import matplotlib.pyplot as plt
-
+import threading
 import time
 import yaml
 import argparse
@@ -59,7 +59,7 @@ from storm_kit.gym.helpers import load_struct_from_dict
 
 from storm_kit.util_file import get_mpc_configs_path as mpc_configs_path
 
-from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform
+from storm_kit.differentiable_robot_model.coordinate_transform import quaternion_to_matrix, CoordinateTransform, matrix_to_quaternion
 from storm_kit.mpc.task.reacher_task import ReacherTask
 
 np.set_printoptions(precision=2)
@@ -73,6 +73,7 @@ def mpc_robot_interactive(args, gym_instance):
     robot_file = args.robot + '.yml'
     task_file = args.robot + '_reacher.yml'
     world_file = 'collision_primitives_3d.yml'
+    dyn_file = 'collision_dynamic_bin.yml'
 
     # mpinet_problem_selection
     mpinet_problem = True
@@ -84,8 +85,11 @@ def mpc_robot_interactive(args, gym_instance):
     gym = gym_instance.gym
     sim = gym_instance.sim
     world_yml = join_path(get_gym_configs_path(), world_file)
+    dyn_yml = join_path(get_gym_configs_path(), dyn_file)
     with open(world_yml) as file:
         world_params = yaml.load(file, Loader=yaml.FullLoader)
+    with open(dyn_yml) as file:
+        dynamic_params = yaml.load(file, Loader=yaml.FullLoader)
 
     robot_yml = join_path(get_gym_configs_path(), args.robot + '.yml')
     with open(robot_yml) as file:
@@ -188,18 +192,31 @@ def mpc_robot_interactive(args, gym_instance):
     object_pose.p = gymapi.Vec3(x, y, z)
     object_pose.r = gymapi.Quat(0, 0, 0, 1)
 
-    obj_asset_file = "urdf/mug/movable_mug.urdf"
+    obj_asset_file = "urdf/box/box.urdf"
     obj_asset_root = get_assets_path()
+
+    hd_list = []
+    # load ball asset
+    color_b = [0.8, 0.7, 0.5]
+    if('cube' in dynamic_params['world_model']['coll_objs']):
+        cube = dynamic_params['world_model']['coll_objs']['cube']
+        for obj in cube.keys():
+            dims = cube[obj]['dims']
+            pose = cube[obj]['pose']
+            hd = world_instance.add_table(dims, pose, color=color_b)
+            hd_1 = gym.get_actor_rigid_body_handle(env_ptr,hd,0)
+            hd_list.append(hd_1)
+
 
     if (vis_ee_target):
         target_object = world_instance.spawn_object(obj_asset_file, obj_asset_root, object_pose, color=tray_color,
                                                     name='ee_target_object')
         obj_base_handle = gym.get_actor_rigid_body_handle(env_ptr, target_object, 0)
-        obj_body_handle = gym.get_actor_rigid_body_handle(env_ptr, target_object, 6)
+        # obj_body_handle = gym.get_actor_rigid_body_handle(env_ptr, target_object, 6)
         gym.set_rigid_body_color(env_ptr, target_object, 0, gymapi.MESH_VISUAL_AND_COLLISION, tray_color)
         gym.set_rigid_body_color(env_ptr, target_object, 6, gymapi.MESH_VISUAL_AND_COLLISION, tray_color)
 
-        obj_asset_file = "urdf/mug/mug.urdf"
+        obj_asset_file = "urdf/box/box.urdf"
         obj_asset_root = get_assets_path()
 
         ee_handle = world_instance.spawn_object(obj_asset_file, obj_asset_root, object_pose, color=tray_color,
@@ -230,35 +247,146 @@ def mpc_robot_interactive(args, gym_instance):
     log_traj = {'q': [], 'q_des': [], 'qdd_des': [], 'qd_des': [],
                 'qddd_des': []}
 
+    # Quick hack for nonlocal memory between threads in Python 2
+    nonlocal_variables = {'scene_change': False}
+    
+    pose0_w = copy.deepcopy(world_instance.get_pose(hd_list[0]))
+    pose1_w = copy.deepcopy(world_instance.get_pose(hd_list[1]))
+    pose2_w = copy.deepcopy(world_instance.get_pose(hd_list[2]))
+    pose3_w = copy.deepcopy(world_instance.get_pose(hd_list[3]))
+
+    pose0_r = copy.deepcopy(w_T_r.inverse() * pose0_w)
+    pose1_r = copy.deepcopy(w_T_r.inverse() * pose1_w)
+    pose2_r = copy.deepcopy(w_T_r.inverse() * pose2_w)
+    pose3_r = copy.deepcopy(w_T_r.inverse() * pose3_w) 
+
+    thick = 0.05
+    dynamic_params["world_model"]["coll_objs"]['cube']['obstacle1']['dims'] = [0.3, thick, 0.2]
+    dynamic_params["world_model"]["coll_objs"]['cube']['obstacle2']['dims'] = [0.3, thick, 0.2]
+    dynamic_params["world_model"]["coll_objs"]['cube']['obstacle3']['dims'] = [thick, 0.45, 0.2]
+    dynamic_params["world_model"]["coll_objs"]['cube']['obstacle4']['dims'] = [thick, 0.45, 0.2]
+    scene_change = False
+    print("haaaaaaaaaaaaaaaaaaaaaaaa")
+    def register_world():
+        print("haaaaaaaaaaaaaaaaaaaaaaaa")
+        while True:
+            if nonlocal_variables['scene_change']:
+                # Update obstacle position
+                st = time.time()
+                # pose_obs0 = nonlocal_variables['obs_pose0']
+                # pose_obs1 = nonlocal_variables['obs_pose1']
+                # pose_obs2 = nonlocal_variables['obs_pose2']
+                # pose_obs3 = nonlocal_variables['obs_pose3']
+                dynamic_params["world_model"]["coll_objs"]['cube']['obstacle1']['pose'] = [pose0_r.p.x, pose0_r.p.y, pose0_r.p.z, 0, 0, 0, 1.0]
+                dynamic_params["world_model"]["coll_objs"]['cube']['obstacle2']['pose'] = [pose1_r.p.x, pose1_r.p.y, pose1_r.p.z, 0, 0, 0, 1.0]
+                dynamic_params["world_model"]["coll_objs"]['cube']['obstacle3']['pose'] = [pose2_r.p.x, pose2_r.p.y, pose2_r.p.z, 0, 0, 0, 1.0]
+                dynamic_params["world_model"]["coll_objs"]['cube']['obstacle4']['pose'] = [pose3_r.p.x, pose3_r.p.y, pose3_r.p.z, 0, 0, 0, 1.0]
+                print()
+                mpc_control.controller.rollout_fn.dynamic_collision_cost.robot_world_coll.world_coll.update_scene(
+                    dynamic_params["world_model"])
+                et = time.time()
+                print("collision updated:", et - st)
+                nonlocal_variables['scene_change'] = False
+            else:
+                time.sleep(0.001)
+
+    action_thread = threading.Thread(target=register_world)
+    action_thread.daemon = True
+    action_thread.start()
+    print("haaaaaaaaaaaaaaaaaaaaaaaa")
     q_des = None
     qd_des = None
     t_step = gym_instance.get_sim_time()
 
     g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
     g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
-
+    pre_t = gym_instance.get_sim_time()
+    pre_y = 0
     while (i > -100):
         try:
+            pre_t = gym_instance.get_sim_time()
             gym_instance.step()
-            if (vis_ee_target):
-                pose = copy.deepcopy(world_instance.get_pose(obj_body_handle))
-                pose = copy.deepcopy(w_T_r.inverse() * pose)
+            g_pos[0] = 0.45
+            g_pos[1] = 0.3*math.sin(0.007*i)
+            # g_pos[1] = 0.0
+            d_gap = copy.deepcopy(g_pos[1]) - pre_y
+            pre_y = copy.deepcopy(g_pos[1])
+            t_gap = gym_instance.get_sim_time() - pre_t
+            print("t_gap is:",t_gap)
+            v_speed = d_gap/t_gap
+            print("velocity of object:",v_speed)
+            g_pos[2] = 0.1
+            g_q[0] = 0.0
+            g_q[1] = 0.7071
+            g_q[2] = 0.7071
+            g_q[3] = 0.0
+            object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
 
-                # if(np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.00001 or (np.linalg.norm(g_q - np.ravel([pose.r.w, pose.r.x, pose.r.y, pose.r.z]))>0.0)):
-                if (np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.1):
+            object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
+            object_pose = w_T_r * object_pose  # object pose in robot frame
+            gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
+
+            pose0_w = copy.deepcopy(world_instance.get_pose(hd_list[0]))
+            pose1_w = copy.deepcopy(world_instance.get_pose(hd_list[1]))
+            pose2_w = copy.deepcopy(world_instance.get_pose(hd_list[2]))
+            pose3_w = copy.deepcopy(world_instance.get_pose(hd_list[3]))
+
+            pose0_r = copy.deepcopy(w_T_r.inverse() * pose0_w)
+            pose1_r = copy.deepcopy(w_T_r.inverse() * pose1_w)
+            pose2_r = copy.deepcopy(w_T_r.inverse() * pose2_w)
+            pose3_r = copy.deepcopy(w_T_r.inverse() * pose3_w)
+
+            pose0_r.p.y = -0.225+0.3*math.sin(0.007*i)
+            pose1_r.p.y = 0.225+0.3*math.sin(0.007*i)   
+            pose2_r.p.y = 0+0.3*math.sin(0.007*i)   
+            pose3_r.p.y = 0+0.3*math.sin(0.007*i)   
+
+            pose0_w = w_T_r * pose0_r
+            pose1_w = w_T_r * pose1_r
+            pose2_w = w_T_r * pose2_r
+            pose3_w = w_T_r * pose3_r
+
+            gym.set_rigid_transform(env_ptr, hd_list[0], pose0_w)
+            gym.set_rigid_transform(env_ptr, hd_list[1], pose1_w)
+            gym.set_rigid_transform(env_ptr, hd_list[2], pose2_w)
+            gym.set_rigid_transform(env_ptr, hd_list[3], pose3_w)
+
+            # pose0 = copy.deepcopy(world_instance.get_pose(hd_list[0]))
+            # pose1 = copy.deepcopy(world_instance.get_pose(hd_list[1]))
+            # pose2 = copy.deepcopy(world_instance.get_pose(hd_list[2]))
+            # pose3 = copy.deepcopy(world_instance.get_pose(hd_list[3]))   
+            nonlocal_variables['scene_change'] = True
+            if (vis_ee_target):
+                pose = copy.deepcopy(world_instance.get_pose(obj_base_handle))
+                # print("pose on robot",pose.p, pose.r)
+                pose = copy.deepcopy(w_T_r.inverse() * pose)
+                # print("pose on world",pose.p, pose.r)
+
+                if(np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.00001 or (np.linalg.norm(g_q - np.ravel([pose.r.w, pose.r.x, pose.r.y, pose.r.z]))>0.0)):
+                # if (np.linalg.norm(g_pos - np.ravel([pose.p.x, pose.p.y, pose.p.z])) > 0.1):
                     g_pos[0] = pose.p.x
-                    g_pos[1] = pose.p.y
+                    g_pos[1] = pose.p.y + v_speed*0.2
                     g_pos[2] = pose.p.z
                     g_q[1] = pose.r.x
                     g_q[2] = pose.r.y
                     g_q[3] = pose.r.z
                     g_q[0] = pose.r.w
 
-                    print("object body handle:", pose.p)
+                    # print("object body handle:", pose.p)
 
                     mpc_control.update_params(goal_ee_pos=g_pos,
                                               goal_ee_quat=g_q)  # continous revise goal
             t_step += sim_dt
+
+            #current pose
+            link_pos, link_rot = mpc_control.controller.rollout_fn.dynamics_model.robot_model.get_link_pose('tcp')
+            link_pos_np = link_pos.squeeze(0).cpu().numpy()
+            link_quat = matrix_to_quaternion(link_rot)
+            link_quat_np = link_quat.squeeze(0).cpu().numpy()
+            cur_pos = link_pos_np
+            # print("!!! current eef link_pos_np ",cur_pos)
+            cur_quat = link_quat_np
+            # print("!!! current eef link_quat_np ",cur_quat)
 
             current_robot_state = copy.deepcopy(robot_sim.get_state(env_ptr, robot_ptr))
 

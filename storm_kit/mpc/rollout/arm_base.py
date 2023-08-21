@@ -124,8 +124,8 @@ class ArmBase(RolloutBase):
             self.primitive_collision_cost = PrimitiveCollisionCost(world_params=world_params, robot_params=robot_params, tensor_args=self.tensor_args, **self.exp_params['cost']['primitive_collision'])
 
         if (exp_params['cost']['dynamic_collision']['weight'] > 0.0):
-            robot_params['world_collision_params']['bounds'] = [[-0.5, -0.8, 0],[0.5,0.8,1.0]]
-            robot_params['world_collision_params']['grid_resolution'] = 0.1
+            robot_params['world_collision_params']['bounds'] = exp_params['cost']['dynamic_collision']['bounds']
+            robot_params['world_collision_params']['grid_resolution'] = exp_params['cost']['dynamic_collision']['grid_resolution']
             self.dynamic_collision_cost = PrimitiveCollisionCost(world_params=world_params, robot_params=robot_params,
                                                                    tensor_args=self.tensor_args,
                                                                    **self.exp_params['cost']['dynamic_collision'])

@@ -28,7 +28,7 @@ from .gaussian_projection import GaussianProjection
 
 
 class PrimitiveCollisionCost(nn.Module):
-    def __init__(self, weight=None, world_params=None, robot_params=None, gaussian_params={},
+    def __init__(self, weight=None, world_params=None, robot_params=None, gaussian_params={}, bounds=None, grid_resolution=None,
                  distance_threshold=0.1, tensor_args={'device': torch.device('cpu'), 'dtype': torch.float32}):
         super(PrimitiveCollisionCost, self).__init__()
 
