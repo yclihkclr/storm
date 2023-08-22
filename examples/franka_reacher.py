@@ -307,7 +307,8 @@ def mpc_robot_interactive(args, gym_instance):
             pre_t = gym_instance.get_sim_time()
             gym_instance.step()
             g_pos[0] = 0.45
-            g_pos[1] = 0.3*math.sin(0.007*i)
+            t_coef = 0.007
+            g_pos[1] = 0.3*math.sin(t_coef*i)
             # g_pos[1] = 0.0
             d_gap = copy.deepcopy(g_pos[1]) - pre_y
             pre_y = copy.deepcopy(g_pos[1])
@@ -316,6 +317,10 @@ def mpc_robot_interactive(args, gym_instance):
             v_speed = d_gap/t_gap
             print("velocity of object:",v_speed)
             g_pos[2] = 0.1
+            # g_q[0] = 0.19803
+            # g_q[1] = 0.6931
+            # g_q[2] = 0.6931
+            # g_q[3] = 0.0
             g_q[0] = 0.0
             g_q[1] = 0.7071
             g_q[2] = 0.7071
@@ -336,10 +341,10 @@ def mpc_robot_interactive(args, gym_instance):
             pose2_r = copy.deepcopy(w_T_r.inverse() * pose2_w)
             pose3_r = copy.deepcopy(w_T_r.inverse() * pose3_w)
 
-            pose0_r.p.y = -0.225+0.3*math.sin(0.007*i)
-            pose1_r.p.y = 0.225+0.3*math.sin(0.007*i)   
-            pose2_r.p.y = 0+0.3*math.sin(0.007*i)   
-            pose3_r.p.y = 0+0.3*math.sin(0.007*i)   
+            pose0_r.p.y = -0.225+0.3*math.sin(t_coef*i)
+            pose1_r.p.y = 0.225+0.3*math.sin(t_coef*i)   
+            pose2_r.p.y = 0+0.3*math.sin(t_coef*i)   
+            pose3_r.p.y = 0+0.3*math.sin(t_coef*i)   
 
             pose0_w = w_T_r * pose0_r
             pose1_w = w_T_r * pose1_r

@@ -29,7 +29,7 @@ control_dt: 0.1
 run_open_loop: False
 control_space: 'acc'
 float_dtype: 'float32'
-state_filter_coeff: {'position':0.1, 'velocity':0.0, 'acceleration':0.0}
+state_filter_coeff: {'position':0.0, 'velocity':0.0, 'acceleration':0.0}
 cmd_filter_coeff: {'position':0.1, 'velocity':0.1, 'acceleration':0.0}
 
 model:
@@ -38,7 +38,7 @@ model:
   learnable_rigid_body_config:
     learnable_links: []
   name: "franka_panda"
-  max_acc: 100.0 
+  max_acc: 5.0 
   dt: 0.05
   dt_traj_params:
     base_dt: 0.05
@@ -50,7 +50,7 @@ model:
   init_state: [0.0, -0.3, 0.0, -1.7, 0.0, 2.0, 0.7854]
   link_names: ['panda_link2','panda_link3','panda_link4','panda_link5', 'panda_link6','gripper']
   #link_names: ['panda_link6']
-  vel_scale: 100.0
+  vel_scale: 1.0
   collision_spheres: '../robot/franka.yml'
   
   robot_collision_params:
@@ -192,4 +192,5 @@ mppi:
     sample_ratio: {'halton':0.0, 'halton-knot':1.0, 'random':0.0, 'random-knot':0.0}
     seed: 0
     filter_coeffs: None #[0.3, 0.3, 0.4]
+    # filter_coeffs: [0.5, 0.5, 0.5]
     knot_scale: 4
