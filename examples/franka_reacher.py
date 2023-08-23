@@ -86,14 +86,19 @@ def mpc_robot_interactive(args, gym_instance):
     sim = gym_instance.sim
     world_yml = join_path(get_gym_configs_path(), world_file)
     dyn_yml = join_path(get_gym_configs_path(), dyn_file)
+    task_yml = join_path(mpc_configs_path(), task_file)
+    robot_yml = join_path(get_gym_configs_path(), robot_file)
+    
+
     with open(world_yml) as file:
         world_params = yaml.load(file, Loader=yaml.FullLoader)
     with open(dyn_yml) as file:
         dynamic_params = yaml.load(file, Loader=yaml.FullLoader)
-
-    robot_yml = join_path(get_gym_configs_path(), args.robot + '.yml')
+    with open(task_yml) as file:
+        task_params = yaml.load(file, Loader=yaml.FullLoader)        
     with open(robot_yml) as file:
         robot_params = yaml.load(file, Loader=yaml.FullLoader)
+
     sim_params = robot_params['sim_params']
     sim_params['asset_root'] = get_assets_path()
     if (args.cuda):
@@ -153,7 +158,7 @@ def mpc_robot_interactive(args, gym_instance):
     table_dims = np.ravel([0.3, 0.1, 0.8])
 
     # get camera data:
-    mpc_control = ReacherTask(task_file, robot_file, world_params, tensor_args)
+    mpc_control = ReacherTask(task_params, robot_params, world_params, tensor_args)
 
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs  # rollout_fn=ArmReacher
 
@@ -225,15 +230,15 @@ def mpc_robot_interactive(args, gym_instance):
         tray_color = gymapi.Vec3(0.0, 0.8, 0.0)
         gym.set_rigid_body_color(env_ptr, ee_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, tray_color)
 
-    g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    # g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
 
-    g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
-    object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
+    # g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    # object_pose.p = gymapi.Vec3(g_pos[0], g_pos[1], g_pos[2])
 
-    object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
-    object_pose = w_T_r * object_pose  # object pose in robot frame
-    if (vis_ee_target):
-        gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
+    # object_pose.r = gymapi.Quat(g_q[1], g_q[2], g_q[3], g_q[0])
+    # object_pose = w_T_r * object_pose  # object pose in robot frame
+    # if (vis_ee_target):
+    #     gym.set_rigid_transform(env_ptr, obj_base_handle, object_pose)
     n_dof = mpc_control.controller.rollout_fn.dynamics_model.n_dofs
     prev_acc = np.zeros(n_dof)
     ee_pose = gymapi.Transform()
@@ -298,8 +303,10 @@ def mpc_robot_interactive(args, gym_instance):
     qd_des = None
     t_step = gym_instance.get_sim_time()
 
-    g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
-    g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    # g_pos = np.ravel(mpc_control.controller.rollout_fn.goal_ee_pos.cpu().numpy())
+    # g_q = np.ravel(mpc_control.controller.rollout_fn.goal_ee_quat.cpu().numpy())
+    g_pos = [0,0,0]
+    g_q = [0,0,0,0]
     pre_t = gym_instance.get_sim_time()
     pre_y = 0
     while (i > -100):

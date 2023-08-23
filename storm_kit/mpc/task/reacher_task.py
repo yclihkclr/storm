@@ -39,9 +39,9 @@ class ReacherTask(ArmTask):
        :parts: 1
 
     """
-    def __init__(self, task_file='ur10.yml', robot_file='ur10_reacher.yml', world_params={}, tensor_args={'device':"cpu", 'dtype':torch.float32}):
+    def __init__(self, task_params={}, robot_params={}, world_params={}, tensor_args={'device':"cpu", 'dtype':torch.float32}):
         
-        super().__init__(task_file=task_file, robot_file=robot_file,
+        super().__init__(task_params=task_params, robot_params=robot_params,
                          world_params=world_params, tensor_args=tensor_args)
 
     def get_rollout_fn(self, **kwargs):
