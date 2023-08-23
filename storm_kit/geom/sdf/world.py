@@ -301,7 +301,7 @@ class WorldPrimitiveCollision(WorldGridCollision):
             w_pts = w_pts.view(w_pts.shape[0], 1, 3)
         if (self.dist.shape[0] != w_pts.shape[0] or self.dist.shape[1] != self.n_objs or self.dist.shape[2] !=
                 w_pts.shape[1]):
-            print("I am here")
+            # print("I am here")
             self.dist = torch.zeros((w_pts.shape[0], self.n_objs, w_pts.shape[1]), **self.tensor_args)
         dist = self.dist
         dist = get_pt_primitive_distance(w_pts, self._world_spheres, self._world_cubes, dist)

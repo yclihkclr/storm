@@ -69,13 +69,15 @@ class ArmReacher(ArmBase):
         #500,30 cost
         goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
                                                                     goal_ee_pos, goal_ee_rot)
-
-
-        cost += goal_cost
+        # print("im in rollout cost")
+        if(self.exp_params['cost']['goal_pose']['weight'][0] > 0.0):
+            # print("im in pos matching cost with weight :",self.goal_cost.weight[0])
+            cost += goal_cost
         
         # joint l2 cost
         if(self.exp_params['cost']['joint_l2']['weight'] > 0.0 and goal_state is not None):
             # 500,30,7 - 1,7
+            # print("im in joint matching cost with weight :",self.dist_cost.weight)
             disp_vec = state_batch[:,:,0:self.n_dofs] - goal_state[:,0:self.n_dofs]
             cost += self.dist_cost.forward(disp_vec)
 
@@ -117,8 +119,8 @@ class ArmReacher(ArmBase):
             self.goal_state = None
         if(goal_state is not None):
             self.goal_state = torch.as_tensor(goal_state, **self.tensor_args).unsqueeze(0)
-            self.goal_ee_pos, self.goal_ee_rot = self.dynamics_model.robot_model.compute_forward_kinematics(self.goal_state[:,0:self.n_dofs], self.goal_state[:,self.n_dofs:2*self.n_dofs], link_name=self.exp_params['model']['ee_link_name'])
-            self.goal_ee_quat = matrix_to_quaternion(self.goal_ee_rot)
+            # self.goal_ee_pos, self.goal_ee_rot = self.dynamics_model.robot_model.compute_forward_kinematics(self.goal_state[:,0:self.n_dofs], self.goal_state[:,self.n_dofs:2*self.n_dofs], link_name=self.exp_params['model']['ee_link_name'])
+            # self.goal_ee_quat = matrix_to_quaternion(self.goal_ee_rot)
         
         return True
     
