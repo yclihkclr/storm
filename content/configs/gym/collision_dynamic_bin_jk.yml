@@ -1,0 +1,19 @@
+world_model:
+  coll_objs:
+    sphere:
+      sphere1:
+        radius: 0.001 #5 # meters
+        position: [10.2, -0.0, 0.4]
+    cube:
+      obstacle1:
+        dims: [0.27, 0.02, 0.15] # x, y, z
+        pose: [0.45, -0.225, 0.05, 0, 0, 0, 1.0]
+      obstacle2:
+        dims: [0.27, 0.02, 0.15] # x, y, z
+        pose: [0.45, 0.225, 0.05, 0, 0, 0, 1.0]
+      obstacle3:
+        dims: [0.02, 0.37, 0.15] # x, y, z
+        pose: [0.6, 0.0, 0.05, 0, 0, 0, 1.0]
+      obstacle4:
+        dims: [0.02, 0.37, 0.15] # x, y, z
+        pose: [0.3, 0.0, 0.05, 0, 0, 0, 1.0]
