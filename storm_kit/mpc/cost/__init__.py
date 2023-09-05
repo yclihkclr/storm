@@ -36,7 +36,7 @@ from .voxel_collision_cost import VoxelCollisionCost
 
 from .final_traj_cost import FinalTrajCost
 from .ref_traj_cost import RefTrajCost
-
+from .straight_cost import StraightCost
 try:
     True
     #from .scene_nn_collision_cost import SceneNNCollisionCost

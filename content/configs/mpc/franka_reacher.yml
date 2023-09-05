@@ -82,6 +82,10 @@ cost:
     hinge_val: -1
     convergence_val: [0.0, 0.0] # orientation, position
 
+  straight_cost:
+    weight: 0.5
+    gaussian_params: {'n':0, 'c':0.0, 's':0.0, 'r':10.0}
+
   zero_vel:
     weight: 0.0
     hinge_val: 0.2 #0.2
@@ -113,7 +117,6 @@ cost:
     distance_threshold: 0.05
     gaussian_params: {'n':0, 'c':0.0, 's':0, 'r':10.0}
     
-
   null_space:
     weight: 1.0 #0.01 #0.05 #0.5 #1.0
     gaussian_params: {'n':0, 'c':0.0, 's':0, 'r':1.0}

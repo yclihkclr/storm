@@ -24,7 +24,7 @@ import torch
 import torch.autograd.profiler as profiler
 
 from ...differentiable_robot_model.coordinate_transform import matrix_to_quaternion, quaternion_to_matrix
-from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost
+from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost, StraightCost
 from ...mpc.rollout.arm_base import ArmBase
 
 class ArmReacher(ArmBase):
@@ -50,6 +50,8 @@ class ArmReacher(ArmBase):
         self.goal_cost = PoseCost(**exp_params['cost']['goal_pose'],
                                   tensor_args=self.tensor_args)
         
+        self.stright_cost = StraightCost(ndofs=self.n_dofs,**exp_params['cost']['straight_cost'],
+                                  tensor_args=self.tensor_args)
 
     def cost_fn(self, state_dict, action_batch, no_coll=False, horizon_cost=True, return_dist=False):
 
@@ -63,6 +65,9 @@ class ArmReacher(ArmBase):
         goal_ee_rot = self.goal_ee_rot
         retract_state = self.retract_state
 
+        #lin jac
+        lin_jac_batch = state_dict['lin_jac_seq']
+
         #1,14 pos+vel
         goal_state = self.goal_state
         
@@ -73,6 +78,8 @@ class ArmReacher(ArmBase):
         if(self.exp_params['cost']['goal_pose']['weight'][0] > 0.0):
             # print("im in pos matching cost with weight :",self.goal_cost.weight[0])
             cost += goal_cost
+            str8_cost = self.stright_cost.forward(ee_pos_batch, goal_ee_pos,lin_jac_batch,state_batch)
+            cost += str8_cost
         
         # joint l2 cost
         if(self.exp_params['cost']['joint_l2']['weight'] > 0.0 and goal_state is not None):
