@@ -24,7 +24,7 @@ import torch
 import torch.autograd.profiler as profiler
 
 from ...differentiable_robot_model.coordinate_transform import matrix_to_quaternion, quaternion_to_matrix
-from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost, StraightCost
+from ..cost import DistCost, PoseCost, ZeroCost, FiniteDifferenceCost, StraightCost,VelMatchCost
 from ...mpc.rollout.arm_base import ArmBase
 
 class ArmReacher(ArmBase):
@@ -42,6 +42,8 @@ class ArmReacher(ArmBase):
         self.goal_state = None #we would replace this term for the end of every global traj
         self.goal_ee_pos = None
         self.goal_ee_rot = None
+        self.vel_ref = None
+        self.print_cost = exp_params['cost']['print']
         
         device = self.tensor_args['device']
         float_dtype = self.tensor_args['dtype']
@@ -51,6 +53,9 @@ class ArmReacher(ArmBase):
                                   tensor_args=self.tensor_args)
         
         self.stright_cost = StraightCost(ndofs=self.n_dofs,**exp_params['cost']['straight_cost'],
+                                  tensor_args=self.tensor_args)
+        
+        self.vel_match_cost=VelMatchCost(ndofs=self.n_dofs,**exp_params['cost']['vel_match_cost'],
                                   tensor_args=self.tensor_args)
 
     def cost_fn(self, state_dict, action_batch, no_coll=False, horizon_cost=True, return_dist=False):
@@ -72,21 +77,35 @@ class ArmReacher(ArmBase):
         goal_state = self.goal_state
         
         #500,30 cost
-        goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
-                                                                    goal_ee_pos, goal_ee_rot)
+
         # print("im in rollout cost")
         if(self.exp_params['cost']['goal_pose']['weight'][0] > 0.0):
             # print("im in pos matching cost with weight :",self.goal_cost.weight[0])
+            goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
+                                                                        goal_ee_pos, goal_ee_rot)
             cost += goal_cost
+            if self.print_cost:
+                print("goal cost is: ",goal_cost[:10,0])
+
             str8_cost = self.stright_cost.forward(ee_pos_batch, goal_ee_pos,lin_jac_batch,state_batch)
             cost += str8_cost
-        
+            if self.print_cost:
+                print("straight cost is: ",str8_cost[:10,0])
+        if(self.exp_params['cost']['vel_match']['weight'] > 0.0):
+            vel_ref = self.vel_ref
+            vel_cost= self.vel_match_cost.forward(lin_jac_batch,state_batch,vel_ref)
+            cost +=vel_cost
+            if self.print_cost:
+                print("vel_cost cost is: ",vel_cost[:10,0])
         # joint l2 cost
         if(self.exp_params['cost']['joint_l2']['weight'] > 0.0 and goal_state is not None):
             # 500,30,7 - 1,7
             # print("im in joint matching cost with weight :",self.dist_cost.weight)
             disp_vec = state_batch[:,:,0:self.n_dofs] - goal_state[:,0:self.n_dofs]
-            cost += self.dist_cost.forward(disp_vec)
+            joint_l2_cost = self.dist_cost.forward(disp_vec)
+            cost += joint_l2_cost
+            if self.print_cost:
+                print("joint_l2 cost is: ",joint_l2_cost[:10,0])
 
         if(return_dist):
             return cost, rot_err_norm, goal_dist
@@ -101,7 +120,7 @@ class ArmReacher(ArmBase):
         return cost
 
 
-    def update_params(self, retract_state=None, goal_state=None, goal_ee_pos=None, goal_ee_rot=None, goal_ee_quat=None):
+    def update_params(self, retract_state=None, goal_state=None, goal_ee_pos=None, goal_ee_rot=None, goal_ee_quat=None, vel_ref=None):
         """
         Update params for the cost terms and dynamics model.
         goal_state: n_dofs
@@ -126,8 +145,9 @@ class ArmReacher(ArmBase):
             self.goal_state = None
         if(goal_state is not None):
             self.goal_state = torch.as_tensor(goal_state, **self.tensor_args).unsqueeze(0)
+        if(vel_ref is not None):    
+            self.vel_ref = torch.as_tensor(vel_ref, **self.tensor_args).unsqueeze(0)
             # self.goal_ee_pos, self.goal_ee_rot = self.dynamics_model.robot_model.compute_forward_kinematics(self.goal_state[:,0:self.n_dofs], self.goal_state[:,self.n_dofs:2*self.n_dofs], link_name=self.exp_params['model']['ee_link_name'])
             # self.goal_ee_quat = matrix_to_quaternion(self.goal_ee_rot)
-        
         return True
     

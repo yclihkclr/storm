@@ -314,10 +314,10 @@ def mpc_robot_interactive(args, gym_instance):
         try:
             pre_t = gym_instance.get_sim_time()
             gym_instance.step()
-            g_pos[0] = 0.45
             t_coef = 0.007
-            g_pos[1] = 0.3*math.sin(t_coef*i)
-            # g_pos[1] = 0.0
+            g_pos[0] = 0.45 + 0.15*math.sin(t_coef*i)
+            # g_pos[1] = 0.3*math.sin(t_coef*i)
+            g_pos[1] = 0.0
             d_gap = copy.deepcopy(g_pos[1]) - pre_y
             pre_y = copy.deepcopy(g_pos[1])
             t_gap = gym_instance.get_sim_time() - pre_t
@@ -354,91 +354,46 @@ def mpc_robot_interactive(args, gym_instance):
             # pose2_r.p.y = 0+0.3*math.sin(t_coef*i)   
             # pose3_r.p.y = 0+0.3*math.sin(t_coef*i)
 
-            pose0_ =np.array( [[ 0.05973631,  0.99779722, -0.02884928,  0.42036271],
-                              [ 0.08055426,  0.02398802,  0.99646153,  0.45273876],
-                              [ 0.99495858, -0.06184886, -0.07894386, -0.01709976],
-                              [ 0.        ,  0.        ,  0.         , 1.        ]]) 
+            # pose0 =  [0.47023479686839714, 0.13047458037388654, 0.01486753166852546, -0.00769965648140755, -0.011055563524697215, 0.05073706350425235, 0.9986211695093314]
+            # pose1 =  [0.5086771029244774, -0.24752393354065905, 0.021137506428097953, -0.00769965648140755, -0.011055563524697215, 0.05073706350425235, 0.9986211695093314]
+            # pose2 =  [0.62870093686903, -0.04431405225746467, 0.02098442435700442, -0.00769965648140755, -0.011055563524697215, 0.05073706350425235, 0.9986211695093314]
+            # pose3 =  [0.35021096292384457, -0.07273530090930784, 0.015020613739618991, -0.00769965648140755, -0.011055563524697215, 0.05073706350425235, 0.9986211695093314]
 
-            pose1_ = np.array( [[ 0.05973631,  0.99779722, -0.02884928,  0.43103694],
-                               [ 0.08055426,  0.02398802,  0.99646153,  0.084048  ],
-                               [ 0.99495858, -0.06184886, -0.07894386,  0.01210947],
-                               [ 0.        ,  0.        ,  0.        ,  1.        ]])
+            pose0 = [0.41387577522798535, 0.1319532860094047, 0.015662289921069, -0.014166138942373134, -0.0077342992697772605, 0.10177346795961573, 0.9946766622082494]
+            pose1 = [0.49072859270053226, -0.24002224010306855, 0.026969474357529583, -0.014166138942373134, -0.0077342992697772605, 0.10177346795961573, 0.9946766622082494]
+            pose2 = [0.5942810630961995, -0.024645512061675087, 0.02312878520868071, -0.014166138942373134, -0.0077342992697772605, 0.10177346795961573, 0.9946766622082494]
+            pose3 = [0.31032330483231807, -0.08342344203198876, 0.019502979069917874, -0.014166138942373134, -0.0077342992697772605, 0.10177346795961573, 0.9946766622082494]
+            pose0_r.p.x=pose0[0]
+            pose0_r.p.y=pose0[1]
+            pose0_r.p.z=pose0[2]
+            pose0_r.r.w=pose0[6]
+            pose0_r.r.x=pose0[3]
+            pose0_r.r.y=pose0[4]
+            pose0_r.r.z=pose0[5]
 
-            pose2_ =np.array( [[ 0.05973631,  0.02884928,  0.99779722,  0.5627919 ],
-                              [ 0.08055426, -0.99646153,  0.02398802,  0.27485393],
-                              [ 0.99495858,  0.07894386, -0.06184886,  0.0289536 ],
-                              [ 0.        ,  0.        ,  0.        ,  1.        ]]) 
+            pose1_r.p.x=pose1[0]
+            pose1_r.p.y=pose1[1]
+            pose1_r.p.z=pose1[2]
+            pose1_r.r.w=pose1[6]
+            pose1_r.r.x=pose1[3]
+            pose1_r.r.y=pose1[4]
+            pose1_r.r.z=pose1[5]
 
-            pose3_ =np.array( [[ 0.05973631, -0.02884928, -0.99779722,  0.29338665],
-                              [ 0.08055426,  0.99646153, -0.02398802,  0.26837717],
-                              [ 0.99495858, -0.07894386,  0.06184886,  0.0456528 ],
-                              [ 0.        ,  0.        ,  0.        ,  1.        ]])
-            pose0=pose1_
-            pose1=pose0_
-            pose2=pose2_
-            pose3=pose3_
-            
-            bT_left=    np.array([ [0,0,1,0.075],
-                                   [1,0,0,0    ],
-                                   [0,1,0,0    ],
-                                   [0,0,0,1    ]])
-            
-            left_T_right=np.array([[1,0,0,0     ],
-                                   [0,1,0,-0.37],
-                                   [0,0,1,0     ],
-                                   [0,0,0,1     ]])
-            
-            left_T_front=np.array([[1,0,0,0.135],
-                                   [0,1,0,-0.185],
-                                   [0,0,1,0     ],
-                                   [0,0,0,1    ]])
-            
-            left_T_back=np.array([ [1,0,0,-0.135],
-                                   [0,1,0,-0.185],
-                                   [0,0,1,0     ],
-                                   [0,0,0,1     ]])
+            pose2_r.p.x=pose2[0]
+            pose2_r.p.y=pose2[1]
+            pose2_r.p.z=pose2[2]
+            pose2_r.r.w=pose2[6]
+            pose2_r.r.x=pose2[3]
+            pose2_r.r.y=pose2[4]
+            pose2_r.r.z=pose2[5]
 
-            pose0=np.dot(np.dot(pose0_,bT_left),left_T_right)
-            pose1=np.dot(pose0_,bT_left)
-            pose2=np.dot(np.dot(pose0_,bT_left),left_T_front)
-            pose3=np.dot(np.dot(pose0_,bT_left),left_T_back)
-
-            pose0_r.p.x=pose0[0,3]
-            pose0_r.p.y=pose0[1,3]
-            pose0_r.p.z=pose0[2,3]
-            pose0_r.r.w=quaternion_from_matrix(pose0)[3]
-            pose0_r.r.x=quaternion_from_matrix(pose0)[0]
-            pose0_r.r.y=quaternion_from_matrix(pose0)[1]
-            pose0_r.r.z=quaternion_from_matrix(pose0)[2]
-
-
-
-            pose1_r.p.x=pose1[0,3]
-            pose1_r.p.y=pose1[1,3]
-            pose1_r.p.z=pose1[2,3]
-            pose1_r.r.w=quaternion_from_matrix(pose1)[3]
-            pose1_r.r.x=quaternion_from_matrix(pose1)[0]
-            pose1_r.r.y=quaternion_from_matrix(pose1)[1]
-            pose1_r.r.z=quaternion_from_matrix(pose1)[2]
-
-
-            pose2_r.p.x=pose2[0,3]
-            pose2_r.p.y=pose2[1,3]
-            pose2_r.p.z=pose2[2,3]
-            pose2_r.r.w=quaternion_from_matrix(pose2)[3]
-            pose2_r.r.x=quaternion_from_matrix(pose2)[0]
-            pose2_r.r.y=quaternion_from_matrix(pose2)[1]
-            pose2_r.r.z=quaternion_from_matrix(pose2)[2]
-
-
-            pose3_r.p.x=pose3[0,3]
-            pose3_r.p.y=pose3[1,3]
-            pose3_r.p.z=pose3[2,3]
-            pose3_r.r.w=quaternion_from_matrix(pose3)[3]
-            pose3_r.r.x=quaternion_from_matrix(pose3)[0]
-            pose3_r.r.y=quaternion_from_matrix(pose3)[1]
-            pose3_r.r.z=quaternion_from_matrix(pose3)[2]
-
+            pose3_r.p.x=pose3[0]
+            pose3_r.p.y=pose3[1]
+            pose3_r.p.z=pose3[2]
+            pose3_r.r.w=pose3[6]
+            pose3_r.r.x=pose3[3]
+            pose3_r.r.y=pose3[4]
+            pose3_r.r.z=pose3[5]
             # revise rotation
             # pose0_r.q or 
 
@@ -477,9 +432,9 @@ def mpc_robot_interactive(args, gym_instance):
                     g_q[0] = pose.r.w
 
                     # print("object body handle:", pose.p)
-
+                    v_r = np.array([0,v_speed,0])
                     mpc_control.update_params(goal_ee_pos=g_pos,
-                                              goal_ee_quat=g_q)  # continous revise goal
+                                              goal_ee_quat=g_q,vel_ref= v_r)  # continous revise goal
             t_step += sim_dt
 
             #current pose
@@ -506,8 +461,8 @@ def mpc_robot_interactive(args, gym_instance):
             qd_des = copy.deepcopy(command['velocity'])  # * 0.5
             qdd_des = copy.deepcopy(command['acceleration'])
 
-            ee_error = mpc_control.get_current_error(filtered_state_mpc)
-
+            # ee_error = mpc_control.get_current_error(filtered_state_mpc)
+            # import pdb; pdb.set_trace()
             pose_state = mpc_control.controller.rollout_fn.get_ee_pose(curr_state_tensor)
 
             # get current pose:

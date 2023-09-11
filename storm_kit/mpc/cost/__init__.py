@@ -37,6 +37,7 @@ from .voxel_collision_cost import VoxelCollisionCost
 from .final_traj_cost import FinalTrajCost
 from .ref_traj_cost import RefTrajCost
 from .straight_cost import StraightCost
+from .ee_vel_match_cost import VelMatchCost
 try:
     True
     #from .scene_nn_collision_cost import SceneNNCollisionCost

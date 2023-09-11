@@ -74,6 +74,7 @@ model:
 
 
 cost:
+  print: False
   goal_pose:
     vec_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     weight: [15.0, 100.0]
@@ -84,6 +85,10 @@ cost:
 
   straight_cost:
     weight: 0.5
+    gaussian_params: {'n':0, 'c':0.0, 's':0.0, 'r':10.0}
+
+  vel_match_cost:
+    weight: 5.0
     gaussian_params: {'n':0, 'c':0.0, 's':0.0, 'r':10.0}
 
   zero_vel:
@@ -128,7 +133,11 @@ cost:
     thresh: 0.03
 
   joint_l2:
-    weight: 0.0
+    weight: 1.0
+    gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':5.0}
+
+  vel_match:
+    weight: 1.0
     gaussian_params: {'n':0, 'c':0.2, 's':0, 'r':5.0}
 
   ee_vel:
