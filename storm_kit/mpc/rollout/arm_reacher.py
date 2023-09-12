@@ -79,19 +79,19 @@ class ArmReacher(ArmBase):
         #500,30 cost
 
         # print("im in rollout cost")
-        if(self.exp_params['cost']['goal_pose']['weight'][0] > 0.0):
+        if(self.exp_params['cost']['goal_pose']['weight'][1] > 0.0):
             # print("im in pos matching cost with weight :",self.goal_cost.weight[0])
             goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward(ee_pos_batch, ee_rot_batch,
                                                                         goal_ee_pos, goal_ee_rot)
             cost += goal_cost
             if self.print_cost:
                 print("goal cost is: ",goal_cost[:10,0])
-
-            str8_cost = self.stright_cost.forward(ee_pos_batch, goal_ee_pos,lin_jac_batch,state_batch)
-            cost += str8_cost
-            if self.print_cost:
-                print("straight cost is: ",str8_cost[:10,0])
-        if(self.exp_params['cost']['vel_match']['weight'] > 0.0):
+            if(self.exp_params['cost']['goal_pose']['weight'][0] > 0.0):
+                str8_cost = self.stright_cost.forward(ee_pos_batch, goal_ee_pos,lin_jac_batch,state_batch)
+                cost += str8_cost
+                if self.print_cost:
+                    print("straight cost is: ",str8_cost[:10,0])
+        if(self.exp_params['cost']['vel_match_cost']['weight'] > 0.0):
             vel_ref = self.vel_ref
             vel_cost= self.vel_match_cost.forward(lin_jac_batch,state_batch,vel_ref)
             cost +=vel_cost
@@ -104,8 +104,8 @@ class ArmReacher(ArmBase):
             disp_vec = state_batch[:,:,0:self.n_dofs] - goal_state[:,0:self.n_dofs]
             joint_l2_cost = self.dist_cost.forward(disp_vec)
             cost += joint_l2_cost
-            if self.print_cost:
-                print("joint_l2 cost is: ",joint_l2_cost[:10,0])
+            # if self.print_cost:
+            #     print("joint_l2 cost is: ",joint_l2_cost[:10,0])
 
         if(return_dist):
             return cost, rot_err_norm, goal_dist

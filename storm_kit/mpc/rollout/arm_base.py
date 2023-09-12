@@ -178,8 +178,8 @@ class ArmBase(RolloutBase):
             if self.exp_params['cost']['stop_cost']['weight'] > 0:
                 stop_cost = self.stop_cost.forward(state_batch[:, :, self.n_dofs:self.n_dofs * 2])
                 cost += stop_cost
-                if self.print_cost:
-                    print("stop cost is: ",stop_cost[:10,0])
+                # if self.print_cost:
+                #     print("stop cost is: ",stop_cost[:10,0])
             if self.exp_params['cost']['stop_cost_acc']['weight'] > 0:
                 cost += self.stop_cost_acc.forward(state_batch[:, :, self.n_dofs*2 :self.n_dofs * 3])
 
@@ -212,13 +212,13 @@ class ArmBase(RolloutBase):
             if self.exp_params['cost']['primitive_collision']['weight'] > 0:
                 coll_cost = self.primitive_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += coll_cost
-                if self.print_cost:
-                    print("primitive_collision_cost is: ",coll_cost[:10,0])
+                # if self.print_cost:
+                #     print("primitive_collision_cost is: ",coll_cost[:10,0])
             if self.exp_params['cost']['dynamic_collision']['weight'] > 0:
                 dy_coll_cost = self.dynamic_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += dy_coll_cost
-                if self.print_cost:
-                    print("dynamic_collision is: ",dy_coll_cost[:10,0])
+                # if self.print_cost:
+                #     print("dynamic_collision is: ",dy_coll_cost[:10,0])
             if self.exp_params['cost']['voxel_collision']['weight'] > 0:
                 coll_cost = self.voxel_collision_cost.forward(link_pos_batch, link_rot_batch)
                 cost += coll_cost
