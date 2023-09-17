@@ -302,6 +302,7 @@ class OLGaussianMPC(Controller):
         """
         self.reset_mean()
         self.reset_covariance()
+        print("im in reset_distribution function")
 
     def _calc_val(self, cost_seq, act_seq):
         raise NotImplementedError("_calc_val not implemented")

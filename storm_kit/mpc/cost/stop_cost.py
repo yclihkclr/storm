@@ -31,7 +31,7 @@ class StopCost(nn.Module):
                  traj_dt=None,**kwargs):
         super(StopCost, self).__init__()
         self.tensor_args = tensor_args
-        self.weight = torch.as_tensor(weight, **tensor_args)
+        self.weight = weight
         self.proj_gaussian = GaussianProjection(gaussian_params=gaussian_params)
         self.traj_dt = traj_dt
         
@@ -62,7 +62,7 @@ class StopCost(nn.Module):
         vel_abs = vel_abs - self.max_vel
         vel_abs[vel_abs < 0.0] = 0.0
         
-        cost = self.weight * self.proj_gaussian(((torch.sum(torch.square(vel_abs), dim=-1))))
+        cost = torch.as_tensor(self.weight, **self.tensor_args) * self.proj_gaussian(((torch.sum(torch.square(vel_abs), dim=-1))))
 
         
         return cost.to(inp_device)

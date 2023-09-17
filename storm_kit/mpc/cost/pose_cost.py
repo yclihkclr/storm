@@ -44,6 +44,7 @@ class PoseCost(nn.Module):
         self.I = torch.eye(3,3, **tensor_args)
         self.weight = weight
         self.vec_weight = torch.as_tensor(vec_weight, **tensor_args)
+        self.rot_weight_list = vec_weight[:3]
         self.rot_weight = self.vec_weight[0:3]
         self.pos_weight = self.vec_weight[3:6]
 
@@ -66,7 +67,7 @@ class PoseCost(nn.Module):
 
     def forward(self, ee_pos_batch, ee_rot_batch, ee_goal_pos, ee_goal_rot):
 
-        
+        self.rot_weight = torch.as_tensor(self.rot_weight_list, **self.tensor_args)
         inp_device = ee_pos_batch.device
         ee_pos_batch = ee_pos_batch.to(device=self.device,
                                        dtype=self.dtype)
